@@ -9,7 +9,7 @@
 
 ---
 
-## 🔒 Seguridad (según el Módulo 2)
+## 🔒 Seguridad 
 - Validaciones con **`require`** para revertir si no se cumplen condiciones (`amount > 0`, no superar `bankCap`, etc.).  
 - Patrón **Checks → Effects → Interactions** en `withdraw` (primero validar, luego actualizar estado, por último transferir ETH).  
 - Envío de ETH con **`.call{value: …}("")`** y verificación del resultado (método recomendado y seguro).  
@@ -78,3 +78,11 @@
 | “cap=0 / bankCap=0 / cap>bankCap” | Fallo de validación `require` en el constructor. |
 | “No veo eventos” | Revisa pestaña **Logs/Events** del explorador. |
 | “Transfer failed” | Falla en `call`; revisa que haya saldo suficiente. |
+
+## 🚀 Contrato desplegado
+
+- **Red:** Sepolia Testnet  
+- **Dirección:** 0xdEB8F9E6BDc249eA40Abe8Eb8609b7dC0AC229bC  
+- **Código verificado:** ✅ Sí  
+- **Fecha de despliegue:** (10/05/2025)
+
