@@ -1,118 +1,162 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-contract KipuBank {
+// == ERRORS ==
 
-/// @notice Se emite cuando un usuario depoista ETH con éxito. 
-/// @param user Dirección del usuario que depositó.
-/// @param amount Monto depositado (wei).
-/// @param newUserBalance Balance del usuario luego del depósito.
+error WithdrawCapZero();
+error BankCapZero();
+error CapAboveBankCap();
+error AmountZero();
+error BankCapExceeded();
+error ExceedsPerTxCap();
+error InsufficientBalance();
+error EtherTransferFailed();
+error DirectEtherNotAllowed();
+
+
+// == EVENTS ==
+
+/// @notice Emitted on successful deposits.
+/// @param user The depositor address.
+/// @param amount Deposited amount in wei.
+/// @param newUserBalance User balance after the deposit.
+
 event Deposited(address indexed user, uint256 amount, uint256 newUserBalance);
 
-/// @notice Se emite cuando usuario retira ETH con éxito.
-/// @param user Dirección del usuario que retiró 
-/// @param amount Monto retirado (wei).
-/// @param newUserBalance Balance del usuario luego del retiro. 
+/// @notice Emitted on successful withdrawals.
+/// @param user The withdrawing address.
+/// @param amount Withdrawn amount in wei.
+/// @param newUserBalance User balance after the withdrawal.
+
 event Withdrawn(address indexed user, uint256 amount, uint256 newUserBalance);
 
-/// Variables de estado - State Variables /// 
 
-/// @notice Límite máximo permitido por retiro (en wei).
-uint256 public immutable withdrawPerTxCap; 
+contract KipuBank {
 
-/// @notice Límite global de depósitos del banco (en wei). 
-uint public immutable bankCap;
+// == STATE VARIABLES ==
+/// @notice Per-transaction withdraw cap (in wei), immutable after deployment.
+uint256 public immutable withdrawPerTxCap;
+
+/// @notice Global bank cap (in wei), immutable after deployment.
+uint256 public immutable bankCap;
+
+/// @dev Total amount of ETH vaulted across all users.
+uint256 private _totalVaulted;
+
+/// @dev Total number of successful deposits.
+uint256 private _depositsCount;
+
+/// @dev Total number of successful withdrawals.
+uint256 private _withdrawsCount;
+
+/// @dev Mapping of user address to their balance.
+mapping(address => uint256) private _balances;
+
+// == CONSTRUCTOR ==
+
+/// @param _withdrawPerTxCap Per-transaction withdraw cap (wei).
+/// @param _bankCap Global bank cap (wei).
 
 constructor(uint256 _withdrawPerTxCap, uint256 _bankCap){
-    require(_withdrawPerTxCap > 0, "cap=0");
-    require(_bankCap > 0, "bankCap=0");
-    require(_withdrawPerTxCap <= _bankCap, "cap>bankCap");
+    if (_withdrawPerTxCap == 0) revert WithdrawCapZero();
+    if (_bankCap == 0) revert BankCapZero();
+    if (_withdrawPerTxCap > _bankCap)revert CapAboveBankCap();
 
     withdrawPerTxCap = _withdrawPerTxCap;
     bankCap = _bankCap;
 }
 
-/// @notice Depositá ETH a tu bóveda personal. 
-/// @dev Enviar un 'Value' > 0 en la transacción. 
+// == EXTERNAL/PUBLIC FUNCTIONS ==
+
+/// @notice Deposit ETH into your personal vault.
+/// @dev Uses CEI: checks -> effects; no external interactions.
+/// Emits a Deposited event on success.
+
 function deposit() external payable {
-    
-    //Checks 
-    require(msg.value > 0, "amount=0");
 
-    uint256 projected = totalVaulted + msg.value;
-    require(projected <= bankCap, "bankCap exceeded");
+    // CHECKS
+    if (msg.value == 0) revert AmountZero();
 
-    //Effects
-    balances[msg.sender] += msg.value;
-    totalVaulted = projected;
-    _incrementDepositCount();
+    uint256 projected = _totalVaulted + msg.value;
+    if (projected > bankCap) revert BankCapExceeded();
 
-    //Interactions N.A.
+    // EFFECTS (cache y una sola escritura)
+    address sender = msg.sender;
+    uint256 newBal = _balances[sender] + msg.value;
+    _balances[sender] = newBal;
+    _totalVaulted = projected;
+    unchecked { _depositsCount += 1; }
 
-    //Event
-    emit Deposited(msg.sender, msg.value, balances[msg.sender]);
+    // EVENT
+    emit Deposited(sender, msg.value, newBal);
 }
-    //Private helper
-function _incrementDepositCount() private {
-        totalDepositsCount +=1;
-    }
 
-/// @notice Retirá ETH de tu bóveda respetanod el límite máximo por transacción
-/// @param amount Monto a retirar en wei
+/// @notice Withdraw ETH from your personal vault, respecting the per-tx cap.
+/// @param amount Amount to withdraw in wei.
+/// @dev Follows CEI: checks -> effects -> interactions.
+/// Emits a Withdrawn event on success.
+
 function withdraw(uint256 amount) external {
 
-    //Checks
-    require(amount > 0, "amount=0");
-    require(amount <= withdrawPerTxCap,"exceeds per transaction cap");
+    // CHECKS
+    if (amount == 0) revert AmountZero();
+    if (amount > withdrawPerTxCap) revert ExceedsPerTxCap();
 
-    uint userBal = balances[msg.sender];
-    require(amount <= userBal, "insufficient balance");
+    address payable sender = payable(msg.sender);
+    uint256 bal = _balances[sender];
+    if (amount > bal) revert InsufficientBalance();
 
-    //Effects (actualizar estados antes de interactura)
-    balances[msg.sender]=userBal - amount;
-    totalVaulted -= amount;
-    totalWithdrawsCount += 1;
+    // EFFECTS
+    uint256 newBal = bal - amount;
+    _balances[sender] = newBal;
+    _totalVaulted -= amount;
+    unchecked { _withdrawsCount += 1; }
 
-    // Interactions (transferencia segura)
-    (bool ok, ) = payable(msg.sender).call{value: amount}("");
-    require(ok, "native transfer failed");
+    // INTERACTIONS
+    (bool ok, ) = sender.call{value: amount}("");
+    if (!ok) revert EtherTransferFailed();
 
-    //Events
-    emit Withdrawn(msg.sender, amount, balances[msg.sender]);
+    emit Withdrawn(sender, amount, newBal);
+}
+
+// == MODIFIERS ==
+
+// == INTERNAL/PRIVATE FUNCTIONS ==
+
+// == VIEW/PURE GETTERS ==
+/// @notice Returns the current balance of a user.
+function balanceOf(address user) external view returns (uint256) {
+    return _balances[user];
+}
+
+/// @notice Returns the total vaulted ETH across all users.
+function totalVaulted() external view returns (uint256) {
+    return _totalVaulted;
+}
+
+/// @notice Returns the total number of successful deposits.
+function totalDeposits() external view returns (uint256) {
+    return _depositsCount;
+}
+
+/// @notice Returns the total number of successful withdrawals.
+function totalWithdrawals() external view returns (uint256) {
+    return _withdrawsCount;
 
 }
 
-/// @notice Devuelve el balance del usuario consultado
-/// @param user Dirección a consultar.
-/// @return balance Balance actual en wei. 
-
-function balanceOf(address user) external view returns (uint256 balance){
-    balance = balances[user];
-}
-
-/// @notice Rechaza ETH enviados directamente. Usa deposit(). 
+// == RECEIVE / FALLBACK ==
+/// @notice Reject direct ETH transfers. Use {deposit}.
 receive() external payable {
-    revert("use deposit()");
+    revert DirectEtherNotAllowed();
 }
 
-/// @notice Rechaza llamadas no esperadas o datos mal formateados 
-fallback() external payable { 
-    revert("use deposit()");
+/// @notice Reject unexpected calls or malformed calldata. Use {deposit}.
+fallback() external payable {
+    revert DirectEtherNotAllowed();
 }
 
-/// @notice Suma total de ETH depositado por todos los usuarios 
-uint256 public totalVaulted;
-
-/// @notice Número total de depósitos exitosos registrados. 
-uint256 public totalDepositsCount; 
-
-/// @notice Número total de retiros exitosos registrados.
-uint256 public totalWithdrawsCount;
-
-/// @notice Balance individual de cada usuario.
-mapping(address=> uint256) public balances; 
 
 }
-
 
 
