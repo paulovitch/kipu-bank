@@ -1,8 +1,3 @@
-perfecto 🚀
-vamos a construir tu **README.md final**, pensado para subirlo al repo público de GitHub (`kipu-bank`) y cumplir tanto con la consigna como con los estándares profesionales.
-
----
-
 # 📘 README.md — **KipuBank**
 
 ```markdown
