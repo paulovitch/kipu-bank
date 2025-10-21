@@ -1,3 +1,11 @@
+perfecto 🚀
+vamos a construir tu **README.md final**, pensado para subirlo al repo público de GitHub (`kipu-bank`) y cumplir tanto con la consigna como con los estándares profesionales.
+
+---
+
+# 📘 README.md — **KipuBank**
+
+```markdown
 # 🏦 KipuBank
 
 ### A minimal ETH vault contract built for educational purposes (Module 2 – ETH Kipu Bootcamp).
@@ -51,3 +59,111 @@ It was designed and deployed as the final project of Module 2 to demonstrate:
 
 ## 🧩 Contract Structure
 
+```
+
+KipuBank.sol
+├── ERRORS
+├── EVENTS
+├── STATE VARIABLES
+├── CONSTRUCTOR
+├── MODIFIERS
+├── EXTERNAL FUNCTIONS
+│   ├── deposit()
+│   └── withdraw(uint256)
+├── INTERNAL FUNCTION
+│   └── _bumpDeposits()
+├── VIEW GETTERS
+│   ├── balanceOf(address)
+│   ├── totalVaulted()
+│   ├── totalDeposits()
+│   ├── totalWithdrawals()
+│   ├── getWithdrawPerTxCap()
+│   └── getBankCap()
+└── RECEIVE / FALLBACK
+
+````
+
+---
+
+## 🧪 Deployment
+
+### 1. Compile
+Use **Remix IDE** or **Hardhat** with Solidity `^0.8.19`.
+
+### 2. Deploy parameters
+When deploying, provide:
+
+```solidity
+constructor(uint256 _withdrawPerTxCap, uint256 _bankCap)
+````
+
+Example:
+
+```
+withdrawPerTxCap = 0.2 ether
+bankCap = 5 ether
+```
+
+---
+
+## 🔍 Verified Contract
+
+* **Network:** Sepolia Testnet
+* **Address:** `0xYOUR_CONTRACT_ADDRESS`
+* **Compiler Version:** 0.8.19
+* **EVM Version:** Default
+* **License:** MIT
+
+(Replace with your actual verified contract address.)
+
+---
+
+## 💻 Interaction
+
+### Deposit ETH
+
+Call:
+
+```solidity
+deposit()
+```
+
+Send ETH along with the call (`msg.value > 0`).
+
+### Withdraw ETH
+
+Call:
+
+```solidity
+withdraw(uint256 amount)
+```
+
+* Must be ≤ your vault balance.
+* Must be ≤ `withdrawPerTxCap`.
+
+### Read data
+
+| Function                | Description                      |
+| ----------------------- | -------------------------------- |
+| `balanceOf(address)`    | Returns vault balance of user    |
+| `totalVaulted()`        | Returns total ETH stored         |
+| `totalDeposits()`       | Number of successful deposits    |
+| `totalWithdrawals()`    | Number of successful withdrawals |
+| `getWithdrawPerTxCap()` | Returns withdraw cap per tx      |
+| `getBankCap()`          | Returns global deposit cap       |
+
+---
+
+## 🔒 Security Considerations
+
+* No external calls in `deposit()`.
+* `withdraw()` follows CEI and checks for transfer success.
+* `receive()` and `fallback()` revert all direct ETH transfers.
+* No reentrancy risk (no untrusted external calls before state updates).
+* Gas-efficient counter updates with `unchecked`.
+
+---
+
+## 🧑‍💻 Author
+
+**Paulo Srulevitch**
