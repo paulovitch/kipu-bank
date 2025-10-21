@@ -1,17 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+/// @title kipubank
+/// @notice ETH vault with per-transaction withdraw cap and a global deposit cap.
+/// @dev Demonstrates custom errors, CEI, modifiers, least-privilege state and NatSpec.
+
+
 // == ERRORS ==
 
+/// @notice Thrown when per-transaction withdraw cap is zero at deployment.
 error WithdrawCapZero();
+
+/// @notice Thrown when bankCap is zero at deployment.
 error BankCapZero();
+
+/// @notice Thrown when withdrawPerTxCap exceeds bankCap.
 error CapAboveBankCap();
+
+/// @notice Thrown when the provided amount/value equals zero.
 error AmountZero();
+
+/// @notice Thrown when a deposit would exceed the global bank cap.
 error BankCapExceeded();
+
+/// @notice Thrown when a withdrawal exceeds the per-transaction cap.
 error ExceedsPerTxCap();
+
+/// @notice Thrown when a user tries to withdraw more than their balance.
 error InsufficientBalance();
+
+/// @notice Thrown when the native ETH transfer via call fails.
 error EtherTransferFailed();
+
+/// @notice Thrown when ETH is sent directly (receive/fallback). Use {deposit}.
 error DirectEtherNotAllowed();
+
 
 
 // == EVENTS ==
@@ -30,26 +53,25 @@ event Deposited(address indexed user, uint256 amount, uint256 newUserBalance);
 
 event Withdrawn(address indexed user, uint256 amount, uint256 newUserBalance);
 
-
-contract KipuBank {
+contract kipubank {
 
 // == STATE VARIABLES ==
-/// @notice Per-transaction withdraw cap (in wei), immutable after deployment.
-uint256 public immutable withdrawPerTxCap;
+/// @notice Maximum amount allowed per single withdrawal (in wei). Immutable after deployment.
+uint256 private immutable withdrawPerTxCap;
 
-/// @notice Global bank cap (in wei), immutable after deployment.
-uint256 public immutable bankCap;
+/// @notice Maximum total amount of ETH that can be deposited across all users (in wei). Immutable after deployment.
+uint256 private immutable bankCap;
 
-/// @dev Total amount of ETH vaulted across all users.
+/// @dev Total ETH currently stored in all user vaults.
 uint256 private _totalVaulted;
 
-/// @dev Total number of successful deposits.
+/// @dev Counter tracking total number of successful deposits.
 uint256 private _depositsCount;
 
-/// @dev Total number of successful withdrawals.
+/// @dev Counter tracking total number of successful withdrawals.
 uint256 private _withdrawsCount;
 
-/// @dev Mapping of user address to their balance.
+/// @dev Mapping storing each user's personal vault balance.
 mapping(address => uint256) private _balances;
 
 // == CONSTRUCTOR ==
@@ -60,7 +82,7 @@ mapping(address => uint256) private _balances;
 constructor(uint256 _withdrawPerTxCap, uint256 _bankCap){
     if (_withdrawPerTxCap == 0) revert WithdrawCapZero();
     if (_bankCap == 0) revert BankCapZero();
-    if (_withdrawPerTxCap > _bankCap)revert CapAboveBankCap();
+    if (_withdrawPerTxCap > _bankCap) revert CapAboveBankCap();
 
     withdrawPerTxCap = _withdrawPerTxCap;
     bankCap = _bankCap;
@@ -72,20 +94,16 @@ constructor(uint256 _withdrawPerTxCap, uint256 _bankCap){
 /// @dev Uses CEI: checks -> effects; no external interactions.
 /// Emits a Deposited event on success.
 
-function deposit() external payable {
+function deposit() external payable nonZeroValue respectsBankCap(msg.value) {
 
     // CHECKS
-    if (msg.value == 0) revert AmountZero();
-
-    uint256 projected = _totalVaulted + msg.value;
-    if (projected > bankCap) revert BankCapExceeded();
-
-    // EFFECTS (cache y una sola escritura)
+    // EFFECTS 
     address sender = msg.sender;
     uint256 newBal = _balances[sender] + msg.value;
     _balances[sender] = newBal;
-    _totalVaulted = projected;
-    unchecked { _depositsCount += 1; }
+    _totalVaulted+= msg.value;
+    _bumpDeposits();
+
 
     // EVENT
     emit Deposited(sender, msg.value, newBal);
@@ -96,11 +114,9 @@ function deposit() external payable {
 /// @dev Follows CEI: checks -> effects -> interactions.
 /// Emits a Withdrawn event on success.
 
-function withdraw(uint256 amount) external {
+function withdraw(uint256 amount) external nonZeroAmount(amount) withinPerTxCap(amount) {
 
     // CHECKS
-    if (amount == 0) revert AmountZero();
-    if (amount > withdrawPerTxCap) revert ExceedsPerTxCap();
 
     address payable sender = payable(msg.sender);
     uint256 bal = _balances[sender];
@@ -120,8 +136,38 @@ function withdraw(uint256 amount) external {
 }
 
 // == MODIFIERS ==
+/// @dev Reverts if msg.value == 0.
+modifier nonZeroValue() {
+    if (msg.value == 0) revert AmountZero();
+    _;
+}
+
+/// @dev Reverts if amount == 0.
+modifier nonZeroAmount(uint256 amount) {
+    if (amount == 0) revert AmountZero();
+    _;
+}
+
+/// @dev Reverts if amount > withdrawPerTxCap.
+modifier withinPerTxCap(uint256 amount) {
+    if (amount > withdrawPerTxCap) revert ExceedsPerTxCap();
+    _;
+}
+
+/// @dev Reverts if (current total + amount) would exceed bankCap.
+modifier respectsBankCap(uint256 amount) {
+    if (_totalVaulted + amount > bankCap) revert BankCapExceeded();
+    _;
+}
+
 
 // == INTERNAL/PRIVATE FUNCTIONS ==
+/// @dev Increments deposit counter (unchecked for gas).
+
+function _bumpDeposits() private {
+    unchecked { _depositsCount += 1; }
+}
+
 
 // == VIEW/PURE GETTERS ==
 /// @notice Returns the current balance of a user.
@@ -145,6 +191,16 @@ function totalWithdrawals() external view returns (uint256) {
 
 }
 
+/// @notice Returns the per-transaction withdraw cap (wei).
+function getWithdrawPerTxCap() external view returns (uint256) {
+    return withdrawPerTxCap;
+}
+
+/// @notice Returns the global bank cap (wei).
+function getBankCap() external view returns (uint256) {
+    return bankCap;
+}
+
 // == RECEIVE / FALLBACK ==
 /// @notice Reject direct ETH transfers. Use {deposit}.
 receive() external payable {
@@ -158,5 +214,4 @@ fallback() external payable {
 
 
 }
-
 
