@@ -1,6 +1,4 @@
-# 📘 README.md — **KipuBank**
-
-```markdown
+📘 README.md — KipuBank
 # 🏦 KipuBank
 
 ### A minimal ETH vault contract built for educational purposes (Module 2 – ETH Kipu Bootcamp).
@@ -54,7 +52,7 @@ It was designed and deployed as the final project of Module 2 to demonstrate:
 
 ## 🧩 Contract Structure
 
-```
+
 
 KipuBank.sol
 ├── ERRORS
@@ -63,20 +61,19 @@ KipuBank.sol
 ├── CONSTRUCTOR
 ├── MODIFIERS
 ├── EXTERNAL FUNCTIONS
-│   ├── deposit()
-│   └── withdraw(uint256)
+│ ├── deposit()
+│ └── withdraw(uint256)
 ├── INTERNAL FUNCTION
-│   └── _bumpDeposits()
+│ └── _bumpDeposits()
 ├── VIEW GETTERS
-│   ├── balanceOf(address)
-│   ├── totalVaulted()
-│   ├── totalDeposits()
-│   ├── totalWithdrawals()
-│   ├── getWithdrawPerTxCap()
-│   └── getBankCap()
+│ ├── balanceOf(address)
+│ ├── totalVaulted()
+│ ├── totalDeposits()
+│ ├── totalWithdrawals()
+│ ├── getWithdrawPerTxCap()
+│ └── getBankCap()
 └── RECEIVE / FALLBACK
 
-````
 
 ---
 
@@ -90,75 +87,68 @@ When deploying, provide:
 
 ```solidity
 constructor(uint256 _withdrawPerTxCap, uint256 _bankCap)
-````
+
 
 Example:
 
-```
 withdrawPerTxCap = 0.2 ether
 bankCap = 5 ether
-```
 
----
+🔍 Verified Contract
 
-## 🔍 Verified Contract
+Network: Sepolia Testnet
 
-* **Network:** Sepolia Testnet
-* **Address:** `0xYOUR_CONTRACT_ADDRESS`
-* **Compiler Version:** 0.8.19
-* **EVM Version:** Default
-* **License:** MIT
+Address: 0xYOUR_CONTRACT_ADDRESS
+
+Compiler Version: 0.8.19
+
+EVM Version: Default
+
+License: MIT
 
 (Replace with your actual verified contract address.)
 
----
-
-## 💻 Interaction
-
-### Deposit ETH
+💻 Interaction
+Deposit ETH
 
 Call:
 
-```solidity
 deposit()
-```
 
-Send ETH along with the call (`msg.value > 0`).
 
-### Withdraw ETH
+Send ETH along with the call (msg.value > 0).
+
+Withdraw ETH
 
 Call:
 
-```solidity
 withdraw(uint256 amount)
-```
 
-* Must be ≤ your vault balance.
-* Must be ≤ `withdrawPerTxCap`.
 
-### Read data
+Must be ≤ your vault balance.
 
-| Function                | Description                      |
-| ----------------------- | -------------------------------- |
-| `balanceOf(address)`    | Returns vault balance of user    |
-| `totalVaulted()`        | Returns total ETH stored         |
-| `totalDeposits()`       | Number of successful deposits    |
-| `totalWithdrawals()`    | Number of successful withdrawals |
-| `getWithdrawPerTxCap()` | Returns withdraw cap per tx      |
-| `getBankCap()`          | Returns global deposit cap       |
+Must be ≤ withdrawPerTxCap.
 
----
+Read data
+Function	Description
+balanceOf(address)	Returns vault balance of user
+totalVaulted()	Returns total ETH stored
+totalDeposits()	Number of successful deposits
+totalWithdrawals()	Number of successful withdrawals
+getWithdrawPerTxCap()	Returns withdraw cap per tx
+getBankCap()	Returns global deposit cap
+🔒 Security Considerations
 
-## 🔒 Security Considerations
+No external calls in deposit().
 
-* No external calls in `deposit()`.
-* `withdraw()` follows CEI and checks for transfer success.
-* `receive()` and `fallback()` revert all direct ETH transfers.
-* No reentrancy risk (no untrusted external calls before state updates).
-* Gas-efficient counter updates with `unchecked`.
+withdraw() follows CEI and checks for transfer success.
 
----
+receive() and fallback() revert all direct ETH transfers.
 
-## 🧑‍💻 Author
+No reentrancy risk (no untrusted external calls before state updates).
 
-**Paulo Srulevitch**
+Gas-efficient counter updates with unchecked.
+
+🧑‍💻 Author
+
+Paulo Srulevitch
